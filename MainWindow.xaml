@@ -1,0 +1,92 @@
+<Window x:Class="EliteFan.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Elite Aria" Width="480" SizeToContent="Height" ResizeMode="CanMinimize"
+        FontSize="14" Closed="Window_Closed">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+        <Style x:Key="Big" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,4,0,8"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#666"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="18">
+        <DockPanel>
+            <Button x:Name="ConnectButton" DockPanel.Dock="Right" Content="Connect" Click="Connect_Click"/>
+            <Button x:Name="StandbyButton" DockPanel.Dock="Right" Content="Standby" Margin="0,0,8,0"
+                    IsEnabled="False" Click="Standby_Click"/>
+            <TextBlock x:Name="ConnectionText" Text="Not connected" VerticalAlignment="Center" FontWeight="SemiBold"/>
+        </DockPanel>
+        <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" Margin="0,6,0,12"
+                   Text="Turn the fan on, close MyETraining, then press Connect."/>
+
+        <TabControl x:Name="Tabs" IsEnabled="False" SelectionChanged="Tabs_SelectionChanged">
+            <TabItem Header="Manual">
+                <StackPanel Margin="14">
+                    <TextBlock Text="Fan speed"/>
+                    <TextBlock x:Name="ManualValue" Style="{StaticResource Big}" Text="0 %"/>
+                    <Slider x:Name="ManualSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10"
+                            TickFrequency="10" TickPlacement="BottomRight" IsSnapToTickEnabled="False"
+                            ValueChanged="ManualSlider_ValueChanged"/>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Power">
+                <StackPanel Margin="14">
+                    <TextBlock Text="Full fan speed at"/>
+                    <TextBlock x:Name="PowerValue" Style="{StaticResource Big}" Text="– W"/>
+                    <Slider x:Name="PowerSlider" Minimum="50" Maximum="1000" SmallChange="10" LargeChange="50"
+                            TickFrequency="10" IsSnapToTickEnabled="True"
+                            ValueChanged="PowerSlider_ValueChanged"/>
+                    <DockPanel Margin="0,14,0,4">
+                        <TextBlock x:Name="PowerMinValue" DockPanel.Dock="Right" FontWeight="SemiBold" Text="– W"/>
+                        <TextBlock Text="Fan starts at"/>
+                    </DockPanel>
+                    <Slider x:Name="PowerMinSlider" Minimum="0" Maximum="500" SmallChange="10" LargeChange="50"
+                            TickFrequency="10" IsSnapToTickEnabled="True"
+                            ValueChanged="PowerMinSlider_ValueChanged"/>
+                    <TextBlock x:Name="PowerHint" Style="{StaticResource Hint}" Margin="0,8,0,12"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Pair power sensor" Click="Pair_Click"/>
+                        <TextBlock x:Name="PowerSensorText" VerticalAlignment="Center" Text="Sensor: –"/>
+                    </DockPanel>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Heart rate">
+                <StackPanel Margin="14">
+                    <TextBlock Text="Full fan speed at"/>
+                    <TextBlock x:Name="HeartValue" Style="{StaticResource Big}" Text="– bpm"/>
+                    <Slider x:Name="HeartSlider" Minimum="50" Maximum="220" SmallChange="1" LargeChange="5"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            ValueChanged="HeartSlider_ValueChanged"/>
+                    <DockPanel Margin="0,14,0,4">
+                        <TextBlock x:Name="HeartMinValue" DockPanel.Dock="Right" FontWeight="SemiBold" Text="– bpm"/>
+                        <TextBlock Text="Fan starts at"/>
+                    </DockPanel>
+                    <Slider x:Name="HeartMinSlider" Minimum="30" Maximum="200" SmallChange="1" LargeChange="5"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            ValueChanged="HeartMinSlider_ValueChanged"/>
+                    <TextBlock x:Name="HeartHint" Style="{StaticResource Hint}" Margin="0,8,0,12"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Pair HR sensor" Click="Pair_Click"/>
+                        <TextBlock x:Name="HeartSensorText" VerticalAlignment="Center" Text="Sensor: –"/>
+                    </DockPanel>
+                    <CheckBox x:Name="BleSensorsBox" Margin="0,12,0,0" Click="BleSensors_Click"
+                              Content="Fan looks for a Bluetooth HR sensor (off = ANT+)"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock x:Name="ErrorText" Foreground="#B00020" TextWrapping="Wrap" Margin="0,10,0,0"/>
+    </StackPanel>
+</Window>

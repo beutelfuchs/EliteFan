@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Elite Aria</title>
+<meta name="description" content="Control an Elite Aria smart fan over Bluetooth.">
+<meta name="theme-color" content="#0b6e75" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#10181a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f3f6f6; --card: #ffffff; --text: #14201f; --muted: #5d6c6b;
+    --line: #d6dedd; --accent: #0b6e75; --accent-text: #ffffff; --danger: #b00020;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10181a; --card: #1a2426; --text: #e8efee; --muted: #9aaaa8;
+      --line: #2e3c3e; --accent: #4fc3cb; --accent-text: #06292c; --danger: #ff8a9a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 8px; }
+  #connection { flex: 1; font-weight: 600; min-width: 0; }
+  #status { color: var(--muted); font-size: 14px; margin: 6px 0 16px; min-height: 1.45em; }
+  button {
+    font: inherit; color: var(--text); background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; min-height: 44px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  fieldset:disabled { opacity: .5; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--line); border-radius: 12px; padding: 4px; }
+  .tabs button { border: 0; background: transparent; border-radius: 9px; padding: 8px 4px; }
+  .tabs button[aria-selected=true] { background: var(--card); font-weight: 600; box-shadow: 0 1px 3px #0003; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 18px; margin-top: 12px; }
+  .label { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; }
+  .label:first-child { margin-top: 0; }
+  .big { font-size: 40px; font-weight: 650; line-height: 1.1; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
+  .value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; height: 36px; margin: 0; accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 14px; margin: 12px 0 16px; }
+  .sensor { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .sensor span { min-width: 0; }
+  .sensor button { flex: none; }
+  .check { display: flex; gap: 10px; align-items: center; margin-top: 16px; font-size: 15px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+  #error { color: var(--danger); margin-top: 14px; min-height: 1.45em; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div id="connection">Not connected</div>
+    <button id="standby" disabled>Standby</button>
+    <button id="connect" class="primary">Connect</button>
+  </header>
+  <div id="status" aria-live="polite"></div>
+
+  <fieldset id="controls" disabled>
+    <div class="tabs" role="tablist" aria-label="Fan mode">
+      <button role="tab" id="tab-manual" aria-controls="panel-manual">Manual</button>
+      <button role="tab" id="tab-power" aria-controls="panel-power">Power</button>
+      <button role="tab" id="tab-heart" aria-controls="panel-heart">Heart rate</button>
+    </div>
+
+    <section role="tabpanel" id="panel-manual" aria-labelledby="tab-manual">
+      <label for="manual">Fan speed</label>
+      <div class="big" id="manualValue">0 %</div>
+      <input type="range" id="manual" min="0" max="100" step="1" value="0">
+    </section>
+
+    <section role="tabpanel" id="panel-power" aria-labelledby="tab-power" hidden>
+      <label for="powerMax">Full fan speed at</label>
+      <div class="big" id="powerMaxValue">– W</div>
+      <input type="range" id="powerMax" min="50" max="1000" step="10" value="300">
+      <div class="label"><label for="powerMin">Fan starts at</label><span class="value" id="powerMinValue">– W</span></div>
+      <input type="range" id="powerMin" min="0" max="500" step="10" value="50">
+      <p class="hint" id="powerHint"></p>
+      <div class="sensor">
+        <span id="powerSensor">Sensor: –</span>
+        <button id="pairPower">Pair power sensor</button>
+      </div>
+    </section>
+
+    <section role="tabpanel" id="panel-heart" aria-labelledby="tab-heart" hidden>
+      <label for="heartMax">Full fan speed at</label>
+      <div class="big" id="heartMaxValue">– bpm</div>
+      <input type="range" id="heartMax" min="50" max="220" step="1" value="180">
+      <div class="label"><label for="heartMin">Fan starts at</label><span class="value" id="heartMinValue">– bpm</span></div>
+      <input type="range" id="heartMin" min="30" max="200" step="1" value="100">
+      <p class="hint" id="heartHint"></p>
+      <div class="sensor">
+        <span id="heartSensor">Sensor: –</span>
+        <button id="pairHeart">Pair HR sensor</button>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="bleSensors">
+        <span>Fan looks for a Bluetooth HR sensor (off = ANT+)</span>
+      </label>
+    </section>
+  </fieldset>
+
+  <div id="error" role="alert"></div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

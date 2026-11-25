@@ -1,0 +1,30 @@
+// Caches the app shell so the installed app opens without a network connection.
+const CACHE = 'elite-aria-v1';
+const SHELL = ['./', 'index.html', 'app.js', 'aria.js', 'manifest.webmanifest', 'icon.svg', 'icon-maskable.svg'];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim()));
+});
+
+// Network first, so an update is picked up as soon as you are online; cache when offline.
+self.addEventListener('fetch', event => {
+  const { request } = event;
+  if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
+  event.respondWith(
+    fetch(request)
+      .then(response => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request, { ignoreSearch: true })));
+});
