@@ -35,6 +35,16 @@ export function requestDevice() {
   });
 }
 
+/**
+ * Returns a fan this browser was already allowed to use, without showing the picker.
+ * Only available where the browser remembers Bluetooth permissions.
+ */
+export async function rememberedDevice() {
+  if (!navigator.bluetooth?.getDevices) return null;
+  const devices = await navigator.bluetooth.getDevices();
+  return devices.find(d => (d.name || '').startsWith('ARIA')) ?? null;
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function withTimeout(promise, ms, message) {
@@ -92,6 +102,24 @@ export class AriaFan {
 
     this._queue = Promise.resolve();
     this._chars = chars;
+  }
+
+  /**
+   * Waits until the fan is seen advertising, so a following connect() does not hang.
+   * Returns straight away where the browser cannot watch advertisements.
+   */
+  async waitUntilSeen(ms) {
+    if (!this.device.watchAdvertisements) return;
+    const abort = new AbortController();
+    try {
+      await new Promise(resolve => {
+        this.device.addEventListener('advertisementreceived', resolve, { once: true });
+        setTimeout(resolve, ms);
+        this.device.watchAdvertisements({ signal: abort.signal }).catch(resolve);
+      });
+    } finally {
+      abort.abort();
+    }
   }
 
   /** Drops the link without forgetting the device. */

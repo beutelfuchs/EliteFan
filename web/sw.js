@@ -1,5 +1,5 @@
 // Caches the app shell so the installed app opens without a network connection.
-const CACHE = 'elite-aria-v1';
+const CACHE = 'elite-aria-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'aria.js', 'manifest.webmanifest', 'icon.svg', 'icon-maskable.svg'];
 
 self.addEventListener('install', event => {

@@ -75,9 +75,15 @@ public partial class MainWindow : Window
     {
         if (_fan != null || (string)ConnectButton.Content == "Cancel")
         {
-            Disconnect("Not connected");
+            await StandbyAndDisconnect();
             return;
         }
+        await ConnectAsync();
+    }
+
+    /// <summary>Finds the fan, connects and wakes it from standby.</summary>
+    private async Task ConnectAsync()
+    {
 
         ConnectButton.IsEnabled = false;
         ConnectionText.Text = "Searching for ARIA…";
@@ -88,6 +94,7 @@ public partial class MainWindow : Window
                             "No ARIA fan found. Make sure it is powered on, in range, and not connected to another app.");
             ConnectionText.Text = $"Connecting to {found.Name}…";
             await ConnectTo(found.Address, found.Name);
+            await _fan!.SetStandbyAsync(false);
         });
 
         ConnectButton.IsEnabled = true;
@@ -179,6 +186,24 @@ public partial class MainWindow : Window
             Disconnect("Connection lost");
             ErrorText.Text = "Could not reconnect to the fan. " + lastError;
         }
+    }
+
+    /// <summary>Puts the fan in standby (if connected), then disconnects.</summary>
+    private async Task StandbyAndDisconnect()
+    {
+        var fan = _fan;
+        if (fan != null)
+        {
+            try
+            {
+                await fan.SetStandbyAsync(true).WaitAsync(TimeSpan.FromSeconds(3));
+            }
+            catch
+            {
+                // Disconnecting anyway.
+            }
+        }
+        Disconnect("Not connected");
     }
 
     private void Disconnect(string text)
@@ -387,5 +412,24 @@ public partial class MainWindow : Window
         await Run(() => _fan.SetStandbyAsync(standby));
     }
 
-    private void Window_Closed(object sender, EventArgs e) => _fan?.Dispose();
+    private async void Window_Loaded(object sender, RoutedEventArgs e) => await ConnectAsync();
+
+    private bool _closing;
+
+    private async void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closing || _fan == null)
+        {
+            _session++;          // stops a reconnect that may be under way
+            _fan?.Dispose();
+            return;
+        }
+
+        // Hold the window open just long enough to send the fan to standby.
+        e.Cancel = true;
+        _closing = true;
+        IsEnabled = false;
+        await StandbyAndDisconnect();
+        Close();
+    }
 }

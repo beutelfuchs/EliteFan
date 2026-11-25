@@ -1,4 +1,4 @@
-import { AriaFan, Addr, Mode, isSupported, requestDevice, sleep } from './aria.js';
+import { AriaFan, Addr, Mode, isSupported, rememberedDevice, requestDevice, sleep } from './aria.js';
 
 const $ = id => document.getElementById(id);
 const TAB_MODES = [Mode.Manual, Mode.Power, Mode.HeartRate];
@@ -46,7 +46,7 @@ function setConnectedUi(connected) {
 
 $('connect').addEventListener('click', async () => {
   if (fan || reconnecting) {
-    dropFan('Not connected', IDLE_HINT);
+    await standbyAndDrop();
     return;
   }
 
@@ -67,6 +67,7 @@ $('connect').addEventListener('click', async () => {
 
   if (ok && session === mySession) {
     showConnected();
+    wake();
   } else {
     const error = $('error').textContent;
     candidate.dispose();
@@ -75,14 +76,47 @@ $('connect').addEventListener('click', async () => {
   }
 });
 
-async function attach(candidate) {
+function adopt(candidate) {
   candidate.onStatus = s => { if (fan === candidate) onStatus(s); };
   candidate.onDisconnected = () => {
     if (fan === candidate && !reconnecting) reconnect('Connection lost – reconnecting…', IDLE_HINT, 120);
   };
+}
+
+async function attach(candidate) {
+  adopt(candidate);
   await candidate.connect();
   fan = candidate;
   await loadSettings();
+}
+
+/** Takes the fan out of standby. */
+function wake() {
+  if (fan?.connected) run(() => fan.setStandby(false));
+}
+
+/** Puts the fan in standby (waiting for it to be sent), then disconnects. */
+async function standbyAndDrop() {
+  const current = fan;
+  if (current?.connected) {
+    $('connect').disabled = true;
+    try {
+      await Promise.race([current.setStandby(true), sleep(3000)]);
+    } catch { /* disconnecting anyway */ }
+    $('connect').disabled = false;
+  }
+  dropFan('Not connected', IDLE_HINT);
+}
+
+/** On start-up: reconnect to a fan this browser already knows, without the picker, where the browser allows it. */
+async function autoConnect() {
+  const device = await rememberedDevice().catch(() => null);
+  if (!device || fan || reconnecting) return;
+  const candidate = new AriaFan(device);
+  adopt(candidate);
+  fan = candidate;
+  reconnect(`Connecting to ${candidate.name}…`, 'Looking for the fan…', 60,
+    { wakeUp: true, failText: 'Could not find the fan. Turn it on, then press Connect.' });
 }
 
 function showConnected() {
@@ -106,7 +140,7 @@ function dropFan(text, hint) {
  * Lets go of the link (if any) and keeps trying until the fan is reachable again.
  * The fan is unreachable while it searches for a sensor, so this simply retries.
  */
-async function reconnect(text, hint, patienceSeconds) {
+async function reconnect(text, hint, patienceSeconds, { wakeUp = false, failText = null } = {}) {
   const current = fan;
   if (!current) return;
   const mySession = ++session;
@@ -121,6 +155,8 @@ async function reconnect(text, hint, patienceSeconds) {
   let lastError = 'The fan did not come back in time.';
   while (Date.now() < deadline && session === mySession) {
     try {
+      await current.waitUntilSeen(8000);
+      if (session !== mySession) return;
       await current.connect();
       if (session !== mySession) return;
       await loadSettings();
@@ -128,6 +164,7 @@ async function reconnect(text, hint, patienceSeconds) {
       reconnecting = false;
       $('error').textContent = '';
       showConnected();
+      if (wakeUp) wake();
       return;
     } catch (e) {
       lastError = e.message || String(e);
@@ -137,8 +174,8 @@ async function reconnect(text, hint, patienceSeconds) {
   }
 
   if (session === mySession) {
-    dropFan('Connection lost', IDLE_HINT);
-    $('error').textContent = `Could not reconnect to the fan. ${lastError}`;
+    dropFan(failText ? 'Not connected' : 'Connection lost', IDLE_HINT);
+    $('error').textContent = failText ?? `Could not reconnect to the fan. ${lastError}`;
   }
 }
 
@@ -309,6 +346,14 @@ if (!isSupported()) {
     'This browser cannot talk to Bluetooth devices. Use Chrome or Edge on Windows, macOS or Android. ' +
     'iPhone and iPad browsers do not support this.';
 }
+
+// Closing the app: send the fan to standby. The browser tears the page (and the link) down
+// right after, so this is best effort - the Disconnect button is the reliable way.
+window.addEventListener('pagehide', () => {
+  if (fan?.connected) fan.setStandby(true).catch(() => {});
+});
+
+if (isSupported()) autoConnect();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
